@@ -42,12 +42,22 @@ jobs:
         zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         cd ..
         
-        # Upload zip directly
         aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip
         
-        # Create EB application and environment if not exists
-        aws elasticbeanstalk update-environment \
+        # Create application version
+        aws elasticbeanstalk create-application-version \
+          --application-name recipe-creator \
+          --version-label "v1-${{ github.sha }}" \
+          --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=backend/deploy.zip \
+          --auto-create-application
+
+        # Create environment if not exists
+        aws elasticbeanstalk create-environment \
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
           --solution-stack-name "64bit Amazon Linux 2023 v4.3.2 running Python 3.9" \
-          --version-label "v1-${{ github.sha }}"
+          --version-label "v1-${{ github.sha }}" \
+          || aws elasticbeanstalk update-environment \
+             --application-name recipe-creator \
+             --environment-name recipe-creator-env \
+             --version-label "v1-${{ github.sha }}"
