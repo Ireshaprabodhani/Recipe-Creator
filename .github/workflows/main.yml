@@ -29,30 +29,34 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ap-south-1
 
     - name: Deploy to AWS
       if: github.ref == 'refs/heads/main'
       run: |
+        # Create S3 bucket if not exists
+        aws s3api create-bucket \
+          --bucket aws-s3-bucket-recipe \
+          --region ap-south-1 \
+          --create-bucket-configuration LocationConstraint=ap-south-1 || true
+        
         # Frontend deployment
-        aws s3 sync frontend/dist s3://s3bucket-aws-s3-bucket-recipe --delete
+        aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
         
         # Backend deployment
         cd image_to_recipe
         zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         cd ..
         
-        # Upload with bucket owner permissions
-        aws s3 cp deploy.zip s3://s3bucket-aws-s3-bucket-recipe/backend/deploy.zip --acl bucket-owner-full-control
+        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip
         
-        # Create application version
+        # Deploy to Elastic Beanstalk
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
-          --source-bundle S3Bucket=s3bucket-aws-s3-bucket-recipe,S3Key=backend/deploy.zip \
+          --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=backend/deploy.zip \
           --auto-create-application
 
-        # Create or update environment
         aws elasticbeanstalk create-environment \
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
