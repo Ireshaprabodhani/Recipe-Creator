@@ -34,23 +34,14 @@ jobs:
     - name: Deploy to AWS
       if: github.ref == 'refs/heads/main'
       run: |
-        # Create S3 bucket if not exists
-        aws s3api create-bucket \
-          --bucket aws-s3-bucket-recipe \
-          --region ap-south-1 \
-          --create-bucket-configuration LocationConstraint=ap-south-1 || true
-        
-        # Frontend deployment
         aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
         
-        # Backend deployment
         cd image_to_recipe
         zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         cd ..
         
         aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip
         
-        # Deploy to Elastic Beanstalk
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
@@ -61,8 +52,5 @@ jobs:
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
           --solution-stack-name "64bit Amazon Linux 2023 v4.3.2 running Python 3.9" \
-          --version-label "v1-${{ github.sha }}" \
-          || aws elasticbeanstalk update-environment \
-             --application-name recipe-creator \
-             --environment-name recipe-creator-env \
-             --version-label "v1-${{ github.sha }}"
+          --option-settings Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
+          --version-label "v1-${{ github.sha }}"
