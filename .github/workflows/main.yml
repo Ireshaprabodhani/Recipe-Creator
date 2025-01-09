@@ -1,70 +1,25 @@
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '18'
-
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        cd image_to_recipe
-        pip install -r requirements.txt
-        pip install pytest
-
-    - name: Install Node.js dependencies
-      run: |
-        cd frontend
-        npm install
-
-    - name: Build React app
-      run: |
-        cd frontend
-        npm run build
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-
-    - name: Deploy to AWS
+- name: Deploy to AWS
       if: github.ref == 'refs/heads/main'
       run: |
-        # Deploy frontend to S3
+        # Frontend deployment
         aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
         
-        # Deploy backend to Elastic Beanstalk
+        # Backend deployment
         cd image_to_recipe
         zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         cd ..
         
-        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/deploy.zip
+        aws s3api put-object \
+          --bucket aws-s3-bucket-recipe \
+          --key deploy.zip \
+          --body deploy.zip
         
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
-          --source-bundle S3Bucket="aws-s3-bucket-recipe",S3Key="deploy.zip"
+          --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=deploy.zip
         
         aws elasticbeanstalk update-environment \
+          --application-name recipe-creator \
           --environment-name recipe-creator-env \
           --version-label "v1-${{ github.sha }}"
