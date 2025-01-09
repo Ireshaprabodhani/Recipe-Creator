@@ -20,7 +20,8 @@ jobs:
 
     - name: Install and Build Frontend
       run: |
-        npm install
+        cd Recipe-Creator
+        npm ci
         npm run build
 
     - name: Configure AWS credentials
@@ -34,28 +35,22 @@ jobs:
       if: github.ref == 'refs/heads/main'
       run: |
         # Frontend deployment
-        aws s3 sync dist s3://aws-s3-bucket-recipe --delete
+        aws s3 sync Recipe-Creator/dist s3://aws-s3-bucket-recipe --delete
         
         # Backend deployment
-        zip -r deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
+        cd Recipe-Creator
+        zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         
-        # Test S3 bucket access
-        aws s3 ls s3://aws-s3-bucket-recipe/
+        # Upload to S3
+        aws s3 cp ../deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip --acl bucket-owner-full-control
         
-        # Upload zip with explicit permissions
-        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip --acl bucket-owner-full-control
-        
-        # Wait for upload completion
-        sleep 10
-        
-        # Create application version
+        # Create/update EB application
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
           --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=backend/deploy.zip \
           --auto-create-application
 
-        # Update or create environment
         aws elasticbeanstalk update-environment \
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
