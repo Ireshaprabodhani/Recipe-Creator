@@ -35,11 +35,6 @@ jobs:
         cd frontend
         npm install
 
-    # - name: Run Python tests
-    #   run: |
-   
-    
-
     - name: Build React app
       run: |
         cd frontend
@@ -58,16 +53,17 @@ jobs:
         # Deploy frontend to S3
         aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
         
-   
         # Deploy backend to Elastic Beanstalk
         cd image_to_recipe
         zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         cd ..
         
+        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/deploy.zip
+        
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
-          --source-bundle FilePath="deploy.zip"
+          --source-bundle S3Bucket="aws-s3-bucket-recipe",S3Key="deploy.zip"
         
         aws elasticbeanstalk update-environment \
           --environment-name recipe-creator-env \
