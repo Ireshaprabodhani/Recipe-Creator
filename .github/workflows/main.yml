@@ -1,4 +1,4 @@
-- name: Deploy to AWS
+    - name: Deploy to AWS
       if: github.ref == 'refs/heads/main'
       run: |
         # Frontend deployment
