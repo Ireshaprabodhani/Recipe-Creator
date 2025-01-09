@@ -1,0 +1,285 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables */
+:root {
+  --color-gold: #D4AF37;
+  --color-cream: #FFFDD0;
+}
+
+/* Recipe Book Wrapper */
+.recipe-book-wrapper {
+  @apply min-h-screen py-12 px-4;
+  background: linear-gradient(135deg, #F5F0E6, #FFFDD0, #F5F0E6);
+}
+
+/* Book Header */
+.book-header {
+  @apply max-w-2xl mx-auto text-center mb-12;
+}
+
+.book-title {
+  @apply text-4xl font-serif font-bold text-gray-800 mb-2;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+/* .book-subtitle {
+  @apply text-lg text-gray-600 italic;
+} */
+
+/* Book Container */
+.book-container {
+  @apply relative max-w-2xl mx-auto;
+  perspective: 00px;
+}
+
+/* FlipBook Core */
+.flip-book {
+  @apply bg-white rounded-xl;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  transform-style: preserve-3d;
+}
+
+/* Page Styles */
+.demoPage {
+  @apply bg-white overflow-hidden;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.page-content {
+  @apply relative h-full w-full p-6;
+}
+
+/* Image Styles */
+.image-wrapper {
+  @apply relative w-full h-48 rounded-xl overflow-hidden mb-6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.recipe-image {
+  @apply w-full h-full object-cover;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.image-placeholder {
+  @apply w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200;
+}
+
+.image-overlay {
+  @apply absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0;
+  transition: opacity 0.3s ease;
+}
+
+/* Recipe Content */
+.recipe-content {
+  @apply space-y-4;
+}
+
+.recipe-title {
+  @apply text-xl font-serif font-bold text-gray-800 border-b-2 pb-2;
+  border-color: rgba(212, 175, 55, 0.2); /* Gold color with opacity */
+}
+
+.description-container {
+  @apply min-h-[4.5em] mb-4; /* Ensure minimum height for description */
+}
+
+.recipe-description {
+  @apply text-gray-600 text-sm italic;
+  /* Remove max-height limitation */
+  line-height: 1.5;
+  /* Optional: add subtle fade-out effect at bottom */
+  background: linear-gradient(180deg, 
+    rgba(255,255,255,1) 0%,
+    rgba(255,255,255,1) 80%,
+    rgba(255,255,255,0) 100%
+  );
+}
+
+.page-content {
+  @apply relative h-full w-full p-6;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Adjust image size to allow more room for text */
+.image-wrapper {
+  @apply relative w-full h-40 rounded-xl overflow-hidden mb-4; /* Reduced height */
+}
+
+/* Meta Information */
+.recipe-meta {
+  @apply flex justify-between items-center mt-auto; /* Push to bottom */
+}
+
+.meta-item {
+  @apply flex items-center text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border;
+  border-color: rgba(212, 175, 55, 0.1);
+}
+
+.meta-icon {
+  @apply w-4 h-4 mr-2;
+  color: var(--color-gold);
+}
+
+/* Button Styles */
+.view-recipe-btn {
+  @apply w-full mt-6 py-2.5 px-4 bg-yellow-600 text-white rounded-lg font-medium tracking-wide
+         transform transition-all duration-300
+         hover:bg-yellow-700
+         hover:scale-[1.02] active:scale-95
+         shadow-md hover:shadow-lg;
+}
+
+/* Cover Page */
+.cover-page {
+  @apply relative overflow-hidden;
+  background: linear-gradient(135deg, #D4AF37, #B8860B, #5C4033);
+}
+
+.cover-content {
+  @apply h-full w-full flex flex-col items-center justify-center p-8 relative;
+}
+
+.cover-pattern {
+  @apply absolute inset-0 opacity-10;
+}
+
+.cover-icon {
+  @apply w-20 h-20 text-white/90 mb-8;
+}
+
+.cover-title {
+  @apply text-4xl font-serif font-bold text-white text-center tracking-wide;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.cover-subtitle {
+  @apply text-white/80 text-sm font-light tracking-widest uppercase mt-4;
+}
+
+.cover-divider {
+  @apply w-24 h-1 bg-white/50 mx-auto rounded-full mt-6;
+}
+
+/* Page Number */
+.page-number {
+  @apply absolute bottom-4 right-4 text-sm text-gray-400 font-serif;
+}
+
+/* Page Indicator */
+.page-indicator {
+  @apply absolute bottom-[-40px] left-1/2 transform -translate-x-1/2
+         text-sm text-gray-800 bg-white/80 px-4 py-2 rounded-full
+         backdrop-blur-sm shadow-lg;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.book-container {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Loading State */
+.loading::before {
+  content: '';
+  @apply absolute inset-0 bg-white/80 backdrop-blur-sm;
+  z-index: 50;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .recipe-book-wrapper {
+    @apply py-6 px-2;
+  }
+  
+  .book-title {
+    @apply text-3xl;
+  }
+  
+  .image-wrapper {
+    @apply h-36;
+  }
+  
+  .recipe-title {
+    @apply text-lg;
+  }
+  
+  .cover-title {
+    @apply text-3xl;
+  }
+}
+
+/* Hover Effects */
+.demoPage:hover {
+  .recipe-image {
+    transform: scale(1.05);
+  }
+  
+  .image-overlay {
+    opacity: 1;
+  }
+}
+
+/* Page Turn Fixes */
+.stf__parent {
+  @apply z-10;
+}
+
+.stf__wrapper {
+  @apply rounded-xl overflow-hidden;
+  transform-style: preserve-3d;
+}
+
+.stf__block {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Shadow Fixes */
+.stf__shadow {
+  display: none !important;
+}
+
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.nutrition-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
