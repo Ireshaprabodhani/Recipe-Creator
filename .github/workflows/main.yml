@@ -18,11 +18,11 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install and Build Frontend
-      run: |
-        cd Recipe-Creator
-        npm ci
-        npm run build
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Build Frontend
+      run: npm run build
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -35,16 +35,14 @@ jobs:
       if: github.ref == 'refs/heads/main'
       run: |
         # Frontend deployment
-        aws s3 sync Recipe-Creator/dist s3://aws-s3-bucket-recipe --delete
+        aws s3 sync dist s3://aws-s3-bucket-recipe --delete
         
         # Backend deployment
-        cd Recipe-Creator
-        zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
+        zip -r deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*" "dist/*"
         
-        # Upload to S3
-        aws s3 cp ../deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip --acl bucket-owner-full-control
+        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip
         
-        # Create/update EB application
+        # Create EB application version and update environment
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
@@ -54,4 +52,5 @@ jobs:
         aws elasticbeanstalk update-environment \
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
+          --solution-stack-name "64bit Amazon Linux 2023 v4.3.2 running Python 3.9" \
           --version-label "v1-${{ github.sha }}"
