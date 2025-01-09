@@ -20,7 +20,6 @@ jobs:
 
     - name: Install and Build Frontend
       run: |
-        cd frontend
         npm install
         npm run build
 
@@ -35,25 +34,29 @@ jobs:
       if: github.ref == 'refs/heads/main'
       run: |
         # Frontend deployment
-        aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
+        aws s3 sync dist s3://aws-s3-bucket-recipe --delete
         
         # Backend deployment
-        cd image_to_recipe
-        zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
-        cd ..
+        zip -r deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
         
-        # Upload zip
-        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip
+        # Test S3 bucket access
+        aws s3 ls s3://aws-s3-bucket-recipe/
+        
+        # Upload zip with explicit permissions
+        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/backend/deploy.zip --acl bucket-owner-full-control
+        
+        # Wait for upload completion
+        sleep 10
         
         # Create application version
         aws elasticbeanstalk create-application-version \
           --application-name recipe-creator \
           --version-label "v1-${{ github.sha }}" \
-          --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=backend/deploy.zip
-        
-        # Create environment
-        aws elasticbeanstalk create-environment \
+          --source-bundle S3Bucket=aws-s3-bucket-recipe,S3Key=backend/deploy.zip \
+          --auto-create-application
+
+        # Update or create environment
+        aws elasticbeanstalk update-environment \
           --application-name recipe-creator \
           --environment-name recipe-creator-env \
-          --version-label "v1-${{ github.sha }}" \
-          --solution-stack-name "64bit Amazon Linux 2023 v4.3.2 running Python 3.9"
+          --version-label "v1-${{ github.sha }}"
