@@ -52,23 +52,22 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
-    # Deploy to AWS
-- name: Deploy to AWS
-  if: github.ref == 'refs/heads/main'
-  run: |
-    # Deploy frontend to S3
-    aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
-    
-    # Package backend for Elastic Beanstalk
-    cd image_to_recipe
-    zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
-    cd ..
-    
-    # Upload zip to S3 first
-    aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/deploy.zip
-    
-    # Create application version using the uploaded zip
-    aws elasticbeanstalk create-application-version \
-      --application-name recipe-creator \
-      --version-label ${{ github.sha }} \
-      --source-bundle S3Bucket="aws-s3-bucket-recipe",S3Key="deploy.zip"
+    - name: Deploy to AWS
+      if: github.ref == 'refs/heads/main'
+      run: |
+        # Deploy frontend to S3
+        aws s3 sync frontend/dist s3://aws-s3-bucket-recipe --delete
+        
+        # Package backend for Elastic Beanstalk
+        cd image_to_recipe
+        zip -r ../deploy.zip . -x "node_modules/*" "*.pyc" "__pycache__/*"
+        cd ..
+        
+        # Upload zip to S3 first
+        aws s3 cp deploy.zip s3://aws-s3-bucket-recipe/deploy.zip
+        
+        # Create application version using the uploaded zip
+        aws elasticbeanstalk create-application-version \
+          --application-name recipe-creator \
+          --version-label ${{ github.sha }} \
+          --source-bundle S3Bucket="aws-s3-bucket-recipe",S3Key="deploy.zip"
