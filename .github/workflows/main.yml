@@ -37,7 +37,7 @@ jobs:
 
     # - name: Run Python tests
     #   run: |
-    #     cd image_to_recipe
+   
     
 
     - name: Build React app
