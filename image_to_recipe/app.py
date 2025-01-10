@@ -407,5 +407,7 @@ def serve_image(filename):
         print(f"Error serving image {filename}: {str(e)}")
         return 'Image not found', 404
 
+        
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
