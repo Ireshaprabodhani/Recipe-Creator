@@ -1,4 +1,13 @@
+# Core dependencies
+flask
+flask-cors
 openai
-Pillow
+pillow
 requests
 matplotlib
+
+# AWS related
+aws-wsgi
+python-dotenv
+
+
