@@ -407,6 +407,9 @@ def serve_image(filename):
         print(f"Error serving image {filename}: {str(e)}")
         return 'Image not found', 404
 
+@app.route('/health')
+def health():
+    return jsonify({"status": "healthy"}), 200
         
 
 if __name__ == '__main__':
