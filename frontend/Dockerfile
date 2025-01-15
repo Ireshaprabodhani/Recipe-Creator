@@ -1,4 +1,5 @@
-FROM node:16-alpine as build
+# Change FROM node:16-alpine to node:18-alpine
+FROM node:18-alpine as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
