@@ -19,8 +19,8 @@ import FlipBook from '../components/FlipBook'
 
 
 
-const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api'
-console.log("API URL:", API_URL);
+const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api';
+console.log('Base API URL:', API_URL);
 
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState([])
@@ -57,35 +57,33 @@ const RecipeGenerator = () => {
 
   const handleGenerateRecipes = async () => {
     try {
-      console.log("Making API call to:", `${API_URL}/generate-recipes`);
-      setLoading(true)
-      setError(null)
-
+      console.log('Starting recipe generation...');
+      console.log('Using ingredients:', ingredients);
+      console.log('Making request to:', `${API_URL}/generate-recipes`);
       
-      const response1 = await axios.post(`${API_URL}/generate-recipes`, {
-        ingredients: ingredients,
-        num_recipes: 3
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
+      setLoading(true);
+      setError(null);
       
-      console.log("API Response:", response1);
-
       if (ingredients.length < 2) {
-        setError('Please add at least 2 ingredients')
-        return
+        setError('Please add at least 2 ingredients');
+        return;
       }
       
       const payload = {
-        ingredients: ingredients
-      }
+        ingredients: ingredients,
+        num_recipes: 5
+      };
+      console.log('Request payload:', payload);
       
-      console.log('Sending payload:', payload)
+      const response = await axios.post(`${API_URL}/generate-recipes`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 30000 // 30 seconds timeout
+      });
       
-      const response = await axios.post(`${API_URL}/generate-recipes`, payload)
+      console.log('API Response:', response);
       
       if (response.data && response.data.recipes) {
         const recipesWithTime = response.data.recipes.map(recipe => {
@@ -95,24 +93,23 @@ const RecipeGenerator = () => {
             cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
           };
         });
-        setRecipes(recipesWithTime)
-        setStage('recipes')
+        setRecipes(recipesWithTime);
+        setStage('recipes');
       } else {
-        throw new Error('Invalid response format from server')
+        throw new Error('Invalid response format from server');
       }
     } catch (err) {
-      console.error('Generate recipes error:', err)
-      // Enhanced error handling
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message || 
-                          err.message || 
-                          'Failed to generate recipes. Please try again.'
-      console.log('Full error details:', err.response?.data) // Add this debug log
-      setError(errorMessage)
+      console.error('Generate recipes error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        fullError: err
+      });
+      setError(err.response?.data?.error || 'Failed to generate recipes. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSelectRecipe = async (recipe) => {
     try {
