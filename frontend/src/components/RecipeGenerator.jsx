@@ -18,7 +18,9 @@ import {
 import FlipBook from '../components/FlipBook'
 
 
+
 const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api'
+console.log("API URL:", API_URL);
 
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState([])
@@ -55,8 +57,23 @@ const RecipeGenerator = () => {
 
   const handleGenerateRecipes = async () => {
     try {
+      console.log("Making API call to:", `${API_URL}/generate-recipes`);
       setLoading(true)
       setError(null)
+
+      
+      const response1 = await axios.post(`${API_URL}/generate-recipes`, {
+        ingredients: ingredients,
+        num_recipes: 3
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      
+      console.log("API Response:", response1);
+
       if (ingredients.length < 2) {
         setError('Please add at least 2 ingredients')
         return
@@ -66,7 +83,7 @@ const RecipeGenerator = () => {
         ingredients: ingredients
       }
       
-      console.log('Sending payload:', payload) // Add this debug log
+      console.log('Sending payload:', payload)
       
       const response = await axios.post(`${API_URL}/generate-recipes`, payload)
       
