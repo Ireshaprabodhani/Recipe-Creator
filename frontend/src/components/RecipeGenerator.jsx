@@ -18,7 +18,7 @@ import {
 import FlipBook from '../components/FlipBook'
 
 
-const API_URL = 'http://localhost:5000/api'
+const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api'
 
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState([])

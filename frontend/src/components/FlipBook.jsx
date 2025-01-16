@@ -19,7 +19,7 @@ const FlipPage = React.forwardRef((props, ref) => {
         <div className="image-container w-full h-40 relative mb-4 bg-gray-100 rounded-lg overflow-hidden">
           {!imageError ? (
             <img
-              src={`http://localhost:5000/images/${recipe.name.toLowerCase().replace(/ /g, '_')}.png`}
+              src={`https://inkqxdx9em.ap-southeast-1.awsapprunner.com/images/${recipe.name.toLowerCase().replace(/ /g, '_')}.png`}
               alt={recipe.name}
               className="w-full h-full object-cover"
               onError={() => setImageError(true)}

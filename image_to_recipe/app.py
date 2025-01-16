@@ -11,21 +11,28 @@ from functools import lru_cache
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS
+CORS(app)
 
-# Load environment variables
+os.makedirs('generated_recipes', exist_ok=True)
+
+
 load_dotenv()
 
 app = Flask(__name__)
-# Configure CORS
+
 CORS(app, resources={
     r"/*": {
-        "origins": [r"http://localhost:*"],  # Allow any localhost port
+        "origins": [
+            "http://localhost:5173", 
+            "https://*.awsapprunner.com",  
+            "https://rqddneerpm.ap-south-1.awsapprunner.com/" 
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Range", "X-Content-Range"]
+        "allow_headers": ["Content-Type", "Authorization"]
     }
 })
+
+
 
 # Initialize OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -283,7 +290,7 @@ class RecipeGenerator:
         except Exception as e:
             print(f"Error cleaning up old images: {str(e)}")
 
-# Initialize recipe generator
+
 recipe_generator = RecipeGenerator()
 
 @app.route('/api/generate-recipes', methods=['POST', 'OPTIONS'])
@@ -298,7 +305,7 @@ def generate_recipes():
         if not ingredients:
             return jsonify({'error': 'No ingredients provided'}), 400
         
-        # Run validation and recipe generation in parallel
+       
         with concurrent.futures.ThreadPoolExecutor() as executor:
             validation_future = executor.submit(recipe_generator.validate_ingredients, ingredients)
             recipes_future = executor.submit(recipe_generator.generate_recipe_options, ingredients)
@@ -309,19 +316,19 @@ def generate_recipes():
         if validation_result and recipes:
             # Create a thread pool for generating images in parallel
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                # Submit all image generation tasks
+               
                 future_to_recipe = {
                     executor.submit(recipe_generator.create_recipe_image, recipe['name']): recipe 
                     for recipe in recipes
                 }
                 
-                # Process completed images as they finish
+                
                 for future in concurrent.futures.as_completed(future_to_recipe):
                     recipe = future_to_recipe[future]
                     try:
                         image_url = future.result()
                         if image_url:
-                            recipe['imageUrl'] = f'http://localhost:5000{image_url}'
+                            recipe['imageUrl'] = f'https://inkqxdx9em.ap-southeast-1.awsapprunner.com{image_url}'
                         recipe['validationInfo'] = validation_result
                     except Exception as e:
                         print(f"Error generating image for {recipe['name']}: {str(e)}")
@@ -413,7 +420,20 @@ def serve_image(filename):
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "healthy"}), 200
+    try:
+        # Check if OpenAI API key is set
+        if not openai.api_key:
+            raise Exception("OpenAI API key not configured")
+        
+        return jsonify({
+            "status": "healthy",
+            "message": "Service is running"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 500
         
 
 if __name__ == '__main__':
