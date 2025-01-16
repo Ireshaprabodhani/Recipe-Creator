@@ -8,6 +8,10 @@ from io import BytesIO
 from dotenv import load_dotenv
 import concurrent.futures
 from functools import lru_cache
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS
 
 # Load environment variables
 load_dotenv()
