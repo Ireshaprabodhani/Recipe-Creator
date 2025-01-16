@@ -40,8 +40,8 @@ jobs:
     - name: Deploy Frontend to App Runner
       run: |
         aws apprunner update-service \
-          --service-arn ${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }} \
-          --source-configuration imageRepository="{imageIdentifier=${{ steps.login-ecr.outputs.registry }}/recipe-frontend:${{ github.sha }},imageRepositoryType=ECR}"
+          --service-arn ${{ secrets.APPRUNNER_SERVICE_ARN }} \
+          --source-configuration '{"AutoDeploymentsEnabled":true,"ImageRepository":{"ImageIdentifier":"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:${{ github.sha }}","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"80","RuntimeEnvironmentVariables":{"VITE_API_URL":"https://inkqxdx9em.ap-southeast-1.awsapprunner.com"}}}}'
 
     - name: Build and push backend image
       env:
