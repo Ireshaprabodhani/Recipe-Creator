@@ -17,10 +17,20 @@ import {
 } from 'lucide-react'
 import FlipBook from '../components/FlipBook'
 
-
-
-const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api';
+// API URL Configuration
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
+const API_URL = `${BASE_URL}/api`;
 console.log('Base API URL:', API_URL);
+
+// Axios default config
+const defaultAxiosConfig = {
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  timeout: 30000,
+  withCredentials: false
+};
 
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState([])
@@ -31,8 +41,8 @@ const RecipeGenerator = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [stage, setStage] = useState('ingredients')
-  const [currentRecipePage, setCurrentRecipePage] = useState(0);
-  const [nutritionLoading, setNutritionLoading] = useState(false);
+  const [currentRecipePage, setCurrentRecipePage] = useState(0)
+  const [nutritionLoading, setNutritionLoading] = useState(false)
 
   const handleAddIngredient = () => {
     if (currentIngredient.trim() && !ingredients.includes(currentIngredient.trim())) {
@@ -52,51 +62,53 @@ const RecipeGenerator = () => {
   }
 
   const handlePageChange = (page) => {
-    setCurrentRecipePage(page);
-  };
+    setCurrentRecipePage(page)
+  }
 
   const handleGenerateRecipes = async () => {
     try {
-      console.log('Starting recipe generation...');
-      console.log('Using ingredients:', ingredients);
-      console.log('Making request to:', `${API_URL}/generate-recipes`);
+      console.log('Starting recipe generation...')
+      console.log('Using ingredients:', ingredients)
+      console.log('Making request to:', `${API_URL}/generate-recipes`)
       
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
       
       if (ingredients.length < 2) {
-        setError('Please add at least 2 ingredients');
-        return;
+        setError('Please add at least 2 ingredients')
+        return
       }
       
       const payload = {
         ingredients: ingredients,
         num_recipes: 5
-      };
-      console.log('Request payload:', payload);
+      }
+      console.log('Request payload:', payload)
       
-      const response = await axios.post(`${API_URL}/generate-recipes`, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        timeout: 30000 // 30 seconds timeout
-      });
+      const response = await axios.post(
+        `${API_URL}/generate-recipes`, 
+        payload,
+        defaultAxiosConfig
+      )
       
-      console.log('API Response:', response);
+      console.log('API Response:', response)
       
       if (response.data && response.data.recipes) {
         const recipesWithTime = response.data.recipes.map(recipe => {
-          const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i);
+          const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i)
+          // Update image URL to use the correct domain
+          if (recipe.imageUrl) {
+            recipe.imageUrl = recipe.imageUrl.replace('https://inkqxdx9em.ap-southeast-1.awsapprunner.com', BASE_URL)
+          }
           return {
             ...recipe,
             cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
-          };
-        });
-        setRecipes(recipesWithTime);
-        setStage('recipes');
+          }
+        })
+        setRecipes(recipesWithTime)
+        setStage('recipes')
       } else {
-        throw new Error('Invalid response format from server');
+        throw new Error('Invalid response format from server')
       }
     } catch (err) {
       console.error('Generate recipes error details:', {
@@ -104,47 +116,55 @@ const RecipeGenerator = () => {
         response: err.response?.data,
         status: err.response?.status,
         fullError: err
-      });
-      setError(err.response?.data?.error || 'Failed to generate recipes. Please try again.');
+      })
+      setError(err.response?.data?.error || 'Failed to generate recipes. Please try again.')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleSelectRecipe = async (recipe) => {
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(true)
+      setError(null)
       
       // Fetch recipe details and nutrition info in parallel
       const [recipeResponse, nutritionResponse] = await Promise.all([
-        axios.post(`${API_URL}/recipe-details`, {
-          recipeName: recipe.name,
-          ingredients: ingredients
-        }),
-        axios.post(`${API_URL}/nutrition-info`, {
-          recipeName: recipe.name,
-          ingredients: ingredients
-        })
-      ]);
+        axios.post(
+          `${API_URL}/recipe-details`,
+          {
+            recipeName: recipe.name,
+            ingredients: ingredients
+          },
+          defaultAxiosConfig
+        ),
+        axios.post(
+          `${API_URL}/nutrition-info`,
+          {
+            recipeName: recipe.name,
+            ingredients: ingredients
+          },
+          defaultAxiosConfig
+        )
+      ])
   
       const recipeWithDetails = {
         ...recipe,
         ...recipeResponse.data,
         nutritionAnalysis: nutritionResponse.data.nutritionInfo,
         imageUrl: recipe.imageUrl
-      };
+      }
   
-      setRecipeDetails(recipeWithDetails);
-      setSelectedRecipe(recipe);
-      setStage('details');
+      setRecipeDetails(recipeWithDetails)
+      setSelectedRecipe(recipe)
+      setStage('details')
     } catch (err) {
-      console.error('Error getting recipe details:', err);
-      setError('Failed to get recipe details');
+      console.error('Error getting recipe details:', err)
+      setError('Failed to get recipe details')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const parseRecipeContent = (content) => {
     if (!content) return { 
@@ -158,9 +178,9 @@ const RecipeGenerator = () => {
     const sections = content.split('\n\n');
     let ingredients = [];
     let instructions = [];
-    let cookingTime = '20 minutes';  // default value
-    let prepTime = '10 minutes';     // default value
-    let servings = '2 portions';     // default value
+    let cookingTime = '20 minutes';  
+    let prepTime = '10 minutes';     
+    let servings = '2 portions';    
     
     sections.forEach(section => {
       if (section.toLowerCase().includes('ingredients')) {

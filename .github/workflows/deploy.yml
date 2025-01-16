@@ -1,4 +1,4 @@
-name: Deploy to ECS
+name: Deploy to AWS App Runner
 
 on:
   push:
@@ -10,35 +10,28 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
-
+    
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
+        aws-region: ap-south-1
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    # Create ECR repository if it doesn't exist
+    - name: Create ECR repository if not exists
+      run: |
+        aws ecr describe-repositories --repository-names recipe-frontend || aws ecr create-repository --repository-name recipe-frontend
+      continue-on-error: true
+
     - name: Build and push frontend image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      working-directory: ./frontend
+        IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/recipe-frontend:${{ github.sha }} .
-        docker push $ECR_REGISTRY/recipe-frontend:${{ github.sha }}
-
-    - name: Build and push backend image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      working-directory: ./backend
-      run: |
-        docker build -t $ECR_REGISTRY/recipe-backend:${{ github.sha }} .
-        docker push $ECR_REGISTRY/recipe-backend:${{ github.sha }}
-
-    - name: Update ECS services
-      run: |
-        aws ecs update-service --cluster recipe-cluster --service recipe-frontend --force-new-deployment
-        aws ecs update-service --cluster recipe-cluster --service recipe-backend --force-new-deployment
+        docker build -t $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG
