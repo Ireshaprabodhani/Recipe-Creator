@@ -1,4 +1,4 @@
-name: Deploy to AWS App Runner
+name: Deploy to AWS
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
-    
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
@@ -22,16 +22,40 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    # Create ECR repository if it doesn't exist
-    - name: Create ECR repository if not exists
-      run: |
-        aws ecr describe-repositories --repository-names recipe-frontend || aws ecr create-repository --repository-name recipe-frontend
-      continue-on-error: true
-
     - name: Build and push frontend image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        echo "Current directory:"
+        pwd
+        echo "Directory contents:"
+        ls -la
+        echo "Frontend directory contents:"
+        ls -la frontend/
+        
+        cd frontend
         docker build -t $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG
+
+    - name: Deploy Frontend to App Runner
+      run: |
+        aws apprunner update-service \
+          --service-arn ${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }} \
+          --source-configuration imageRepository="{imageIdentifier=${{ steps.login-ecr.outputs.registry }}/recipe-frontend:${{ github.sha }},imageRepositoryType=ECR}"
+
+    - name: Build and push backend image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      working-directory: ./backend
+      run: |
+        docker build -t $ECR_REGISTRY/recipe-backend:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/recipe-backend:$IMAGE_TAG $ECR_REGISTRY/recipe-backend:latest
+        docker push $ECR_REGISTRY/recipe-backend:$IMAGE_TAG
+        docker push $ECR_REGISTRY/recipe-backend:latest
+
+    - name: Deploy Backend to App Runner
+      run: |
+        aws apprunner update-service \
+          --service-arn ${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }} \
+          --source-configuration imageRepository="{imageIdentifier=${{ steps.login-ecr.outputs.registry }}/recipe-backend:${{ github.sha }},imageRepositoryType=ECR}"
