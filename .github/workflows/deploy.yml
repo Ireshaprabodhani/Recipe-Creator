@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: Deploy to AWS App Runner
 
 on:
   push:
@@ -16,46 +16,52 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1
+        aws-region: ap-southeast-1  # Changed to Singapore region
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build and push frontend image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        echo "Current directory:"
-        pwd
-        echo "Directory contents:"
-        ls -la
-        echo "Frontend directory contents:"
-        ls -la frontend/
-        
-        cd frontend
-        docker build -t $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG .
-
-    - name: Deploy Frontend to App Runner
-      run: |
-        aws apprunner update-service \
-          --service-arn ${{ secrets.APPRUNNER_SERVICE_ARN }} \
-          --source-configuration '{"AutoDeploymentsEnabled":true,"ImageRepository":{"ImageIdentifier":"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:${{ github.sha }}","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"80","RuntimeEnvironmentVariables":{"VITE_API_URL":"https://inkqxdx9em.ap-southeast-1.awsapprunner.com"}}}}'
-
+    # Build and Deploy Backend
     - name: Build and push backend image
+      working-directory: ./backend
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
-      working-directory: ./backend
       run: |
+        echo "Building backend image..."
         docker build -t $ECR_REGISTRY/recipe-backend:$IMAGE_TAG .
         docker tag $ECR_REGISTRY/recipe-backend:$IMAGE_TAG $ECR_REGISTRY/recipe-backend:latest
+        echo "Pushing backend image..."
         docker push $ECR_REGISTRY/recipe-backend:$IMAGE_TAG
         docker push $ECR_REGISTRY/recipe-backend:latest
 
     - name: Deploy Backend to App Runner
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
         aws apprunner update-service \
           --service-arn ${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }} \
-          --source-configuration imageRepository="{imageIdentifier=${{ steps.login-ecr.outputs.registry }}/recipe-backend:${{ github.sha }},imageRepositoryType=ECR}"
+          --source-configuration '{"ImageRepository":{"ImageIdentifier":"'$ECR_REGISTRY'/recipe-backend:'${{ github.sha }}'","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"5000","RuntimeEnvironmentVariables":{"OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}"}}}}'
+
+    # Build and Deploy Frontend
+    - name: Build and push frontend image
+      working-directory: ./frontend
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        echo "Building frontend image..."
+        docker build -t $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG $ECR_REGISTRY/recipe-frontend:latest
+        echo "Pushing frontend image..."
+        docker push $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG
+        docker push $ECR_REGISTRY/recipe-frontend:latest
+
+    - name: Deploy Frontend to App Runner
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        aws apprunner update-service \
+          --service-arn ${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }} \
+          --source-configuration '{"ImageRepository":{"ImageIdentifier":"'$ECR_REGISTRY'/recipe-frontend:'${{ github.sha }}'","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"80","RuntimeEnvironmentVariables":{"VITE_API_URL":"${{ secrets.BACKEND_URL }}"}}}}'
