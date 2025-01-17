@@ -16,52 +16,39 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-southeast-1  # Changed to Singapore region
+        aws-region: ap-southeast-1
+
+    - name: Create ECR Repositories
+      run: |
+        aws ecr describe-repositories --repository-names recipe-backend || aws ecr create-repository --repository-name recipe-backend
+        aws ecr describe-repositories --repository-names recipe-frontend || aws ecr create-repository --repository-name recipe-frontend
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    # Build and Deploy Backend
-    - name: Build and push backend image
+    - name: Build and push backend
       working-directory: ./image_to_recipe
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Building backend image..."
-        docker build -t $ECR_REGISTRY/recipe-backend:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/recipe-backend:$IMAGE_TAG $ECR_REGISTRY/recipe-backend:latest
-        echo "Pushing backend image..."
-        docker push $ECR_REGISTRY/recipe-backend:$IMAGE_TAG
-        docker push $ECR_REGISTRY/recipe-backend:latest
+        docker build -t backend .
+        docker tag backend:latest ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
+        docker push ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
 
     - name: Deploy Backend to App Runner
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
         aws apprunner update-service \
-          --service-arn ${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }} \
-          --source-configuration '{"ImageRepository":{"ImageIdentifier":"'$ECR_REGISTRY'/recipe-backend:'${{ github.sha }}'","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"5000","RuntimeEnvironmentVariables":{"OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}"}}}}'
+          --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" \
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":5000,\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
 
-    # Build and Deploy Frontend
-    - name: Build and push frontend image
+    - name: Build and push frontend
       working-directory: ./frontend
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Building frontend image..."
-        docker build -t $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG $ECR_REGISTRY/recipe-frontend:latest
-        echo "Pushing frontend image..."
-        docker push $ECR_REGISTRY/recipe-frontend:$IMAGE_TAG
-        docker push $ECR_REGISTRY/recipe-frontend:latest
+        docker build -t frontend .
+        docker tag frontend:latest ${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest
+        docker push ${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest
 
     - name: Deploy Frontend to App Runner
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
         aws apprunner update-service \
-          --service-arn ${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }} \
-          --source-configuration '{"ImageRepository":{"ImageIdentifier":"'$ECR_REGISTRY'/recipe-frontend:'${{ github.sha }}'","ImageRepositoryType":"ECR","ImageConfiguration":{"Port":"80","RuntimeEnvironmentVariables":{"VITE_API_URL":"${{ secrets.BACKEND_URL }}"}}}}'
+          --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" \
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":80,\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}"
