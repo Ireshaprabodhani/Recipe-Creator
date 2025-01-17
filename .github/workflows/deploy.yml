@@ -18,11 +18,6 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-southeast-1
 
-    - name: Create ECR Repositories
-      run: |
-        aws ecr describe-repositories --repository-names recipe-backend || aws ecr create-repository --repository-name recipe-backend
-        aws ecr describe-repositories --repository-names recipe-frontend || aws ecr create-repository --repository-name recipe-frontend
-
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -38,7 +33,7 @@ jobs:
       run: |
         aws apprunner update-service \
           --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" \
-          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":5000,\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"5000\",\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
 
     - name: Build and push frontend
       working-directory: ./frontend
@@ -51,4 +46,4 @@ jobs:
       run: |
         aws apprunner update-service \
           --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" \
-          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":80,\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}"
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"80\",\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}"
