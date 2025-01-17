@@ -20,7 +20,6 @@ import FlipBook from '../components/FlipBook'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
 const API_URL = `${BASE_URL}/api`;
-console.log('Base API URL:', API_URL);
 
 // Axios default config
 const defaultAxiosConfig = {

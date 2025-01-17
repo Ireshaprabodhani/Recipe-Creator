@@ -1,2 +1,2 @@
-export const API_URL = 'http://localhost:5000/api';
-export const IMAGE_BASE_URL = 'http://localhost:5000';
+export const API_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com/api';
+export const IMAGE_BASE_URL = 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
