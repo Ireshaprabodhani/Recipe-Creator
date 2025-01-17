@@ -24,7 +24,7 @@ jobs:
 
     # Build and Deploy Backend
     - name: Build and push backend image
-      working-directory: ./backend
+      working-directory: ./image_to_recipe
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
