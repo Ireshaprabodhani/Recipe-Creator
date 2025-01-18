@@ -18,19 +18,6 @@ import {
 import FlipBook from '../components/FlipBook'
 
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
-const API_URL = `${BASE_URL}/api`;
-
-// Axios default config
-const defaultAxiosConfig = {
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  timeout: 30000,
-  withCredentials: false
-};
-
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState([])
   const [currentIngredient, setCurrentIngredient] = useState('')
@@ -42,6 +29,21 @@ const RecipeGenerator = () => {
   const [stage, setStage] = useState('ingredients')
   const [currentRecipePage, setCurrentRecipePage] = useState(0)
   const [nutritionLoading, setNutritionLoading] = useState(false)
+
+  const BASE_URL = import.meta.env.VITE_API_URL || 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
+  const API_URL = `${BASE_URL}/api`;
+
+  const axiosConfig = {
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    timeout: 30000,
+    withCredentials: false
+  };
+
+  const apiClient = axios.create(axiosConfig);
 
   const handleAddIngredient = () => {
     if (currentIngredient.trim() && !ingredients.includes(currentIngredient.trim())) {
@@ -66,85 +68,81 @@ const RecipeGenerator = () => {
 
   const handleGenerateRecipes = async () => {
     try {
-      console.log('Starting recipe generation...')
-      console.log('Using ingredients:', ingredients)
-      console.log('Making request to:', `${API_URL}/generate-recipes`)
+      console.log('Starting recipe generation...');
+      console.log('Using API URL:', API_URL);
       
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       
+      // Validate ingredients first
       if (ingredients.length < 2) {
-        setError('Please add at least 2 ingredients')
-        return
+        setError('Please add at least 2 ingredients');
+        return;
       }
       
+      // Prepare payload
       const payload = {
         ingredients: ingredients,
         num_recipes: 5
-      }
-      console.log('Request payload:', payload)
+      };
+      console.log('Request payload:', payload);
       
-      // Add detailed error logging
-      try {
-        const response = await axios.post(
-          `${API_URL}/generate-recipes`, 
-          payload,
-          {
-            ...defaultAxiosConfig,
-            headers: {
-              ...defaultAxiosConfig.headers,
-              'Origin': window.location.origin
-            }
+      // Make API request
+      const response = await apiClient.post('/generate-recipes', payload);
+      console.log('API Response:', response);
+      
+      // Process response
+      if (response.data && response.data.recipes) {
+        const recipesWithTime = response.data.recipes.map(recipe => {
+          const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i);
+          
+          // Update image URL if present
+          let imageUrl = recipe.imageUrl;
+          if (imageUrl) {
+            imageUrl = imageUrl.replace(
+              'https://inkqxdx9em.ap-southeast-1.awsapprunner.com',
+              BASE_URL
+            );
           }
-        )
+          
+          return {
+            ...recipe,
+            imageUrl,
+            cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
+          };
+        });
         
-        console.log('API Response:', response)
-        
-        if (response.data && response.data.recipes) {
-          const recipesWithTime = response.data.recipes.map(recipe => {
-            const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i)
-            if (recipe.imageUrl) {
-              recipe.imageUrl = recipe.imageUrl.replace(
-                'https://inkqxdx9em.ap-southeast-1.awsapprunner.com', 
-                BASE_URL
-              )
-            }
-            return {
-              ...recipe,
-              cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
-            }
-          })
-          setRecipes(recipesWithTime)
-          setStage('recipes')
-        } else {
-          throw new Error('Invalid response format from server')
-        }
-      } catch (axiosError) {
-        console.error('Axios error details:', {
-          message: axiosError.message,
-          status: axiosError.response?.status,
-          statusText: axiosError.response?.statusText,
-          data: axiosError.response?.data,
-          config: {
-            url: axiosError.config?.url,
-            method: axiosError.config?.method,
-            headers: axiosError.config?.headers
-          }
-        })
-        throw axiosError // Re-throw for outer catch block
+        setRecipes(recipesWithTime);
+        setStage('recipes');
+      } else {
+        throw new Error('Invalid response format from server');
       }
-    } catch (err) {
-      console.error('Generate recipes error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        fullError: err
-      })
-      setError(err.response?.data?.error || 'Failed to generate recipes. Please try again.')
+    } catch (error) {
+      // Comprehensive error logging
+      console.error('Generate recipes error:', {
+        message: error.message,
+        response: {
+          data: error.response?.data,
+          status: error.response?.status,
+          statusText: error.response?.statusText
+        },
+        request: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      });
+      
+      // Set user-friendly error message
+      setError(
+        error.response?.data?.error || 
+        'Failed to generate recipes. Please try again.'
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSelectRecipe = async (recipe) => {
     try {
