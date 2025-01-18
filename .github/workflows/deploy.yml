@@ -22,6 +22,26 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    - name: Check Backend Service Status
+      id: check-backend
+      run: |
+        status=$(aws apprunner describe-service --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+        echo "Backend service status: $status"
+        if [ "$status" != "RUNNING" ]; then
+          echo "Waiting for backend service to be ready..."
+          count=0
+          while [ "$status" != "RUNNING" ] && [ $count -lt 30 ]; do
+            sleep 20
+            status=$(aws apprunner describe-service --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+            echo "Backend service status: $status"
+            count=$((count + 1))
+          done
+        fi
+        if [ "$status" != "RUNNING" ]; then
+          echo "::error::Backend service not ready after timeout"
+          exit 1
+        fi
+
     - name: Build and push backend
       working-directory: ./image_to_recipe
       run: |
@@ -33,7 +53,40 @@ jobs:
       run: |
         aws apprunner update-service \
           --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" \
-          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"5000\",\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"5000\",\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}" || true
+
+    - name: Wait for Backend Deployment
+      run: |
+        echo "Waiting for backend deployment to complete..."
+        sleep 30
+        status=$(aws apprunner describe-service --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+        count=0
+        while [ "$status" != "RUNNING" ] && [ $count -lt 30 ]; do
+          sleep 20
+          status=$(aws apprunner describe-service --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+          echo "Backend deployment status: $status"
+          count=$((count + 1))
+        done
+
+    - name: Check Frontend Service Status
+      id: check-frontend
+      run: |
+        status=$(aws apprunner describe-service --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+        echo "Frontend service status: $status"
+        if [ "$status" != "RUNNING" ]; then
+          echo "Waiting for frontend service to be ready..."
+          count=0
+          while [ "$status" != "RUNNING" ] && [ $count -lt 30 ]; do
+            sleep 20
+            status=$(aws apprunner describe-service --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+            echo "Frontend service status: $status"
+            count=$((count + 1))
+          done
+        fi
+        if [ "$status" != "RUNNING" ]; then
+          echo "::error::Frontend service not ready after timeout"
+          exit 1
+        fi
 
     - name: Build and push frontend
       working-directory: ./frontend
@@ -46,4 +99,17 @@ jobs:
       run: |
         aws apprunner update-service \
           --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" \
-          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"80\",\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}"
+          --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"80\",\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}" || true
+
+    - name: Wait for Frontend Deployment
+      run: |
+        echo "Waiting for frontend deployment to complete..."
+        sleep 30
+        status=$(aws apprunner describe-service --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+        count=0
+        while [ "$status" != "RUNNING" ] && [ $count -lt 30 ]; do
+          sleep 20
+          status=$(aws apprunner describe-service --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" --query "Service.Status" --output text)
+          echo "Frontend deployment status: $status"
+          count=$((count + 1))
+        done
