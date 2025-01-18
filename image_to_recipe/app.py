@@ -299,13 +299,46 @@ def generate_recipes():
         return "", 200
         
     try:
+        # Log incoming request
+        print(f"Received request with headers: {dict(request.headers)}")
+        print(f"Request body: {request.get_data(as_text=True)}")
+        
+        # Validate request
+        if not request.is_json:
+            return jsonify({
+                'error': 'Request must be JSON',
+                'content_type': request.headers.get('Content-Type')
+            }), 400
+            
         data = request.json
+        print(f"Parsed JSON data: {data}")
+        
+        # Validate ingredients
         ingredients = data.get('ingredients', [])
-        
         if not ingredients:
-            return jsonify({'error': 'No ingredients provided'}), 400
+            return jsonify({
+                'error': 'No ingredients provided',
+                'data': data
+            }), 400
+            
+        if not isinstance(ingredients, list):
+            return jsonify({
+                'error': 'Ingredients must be a list',
+                'type': type(ingredients).__name__,
+                'data': ingredients
+            }), 400
+            
+        if len(ingredients) < 2:
+            return jsonify({
+                'error': 'At least 2 ingredients are required',
+                'count': len(ingredients)
+            }), 400
+            
+        # Clean ingredients
+        ingredients = [str(ing).strip() for ing in ingredients if ing]
+        ingredients = [ing for ing in ingredients if ing]  # Remove empty strings
         
-       
+        # Generate recipes
         with concurrent.futures.ThreadPoolExecutor() as executor:
             validation_future = executor.submit(recipe_generator.validate_ingredients, ingredients)
             recipes_future = executor.submit(recipe_generator.generate_recipe_options, ingredients)
@@ -313,34 +346,43 @@ def generate_recipes():
             validation_result = validation_future.result()
             recipes = recipes_future.result()
         
-        if validation_result and recipes:
-            # Create a thread pool for generating images in parallel
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-               
-                future_to_recipe = {
-                    executor.submit(recipe_generator.create_recipe_image, recipe['name']): recipe 
-                    for recipe in recipes
-                }
-                
-                
-                for future in concurrent.futures.as_completed(future_to_recipe):
-                    recipe = future_to_recipe[future]
-                    try:
-                        image_url = future.result()
-                        if image_url:
-                            recipe['imageUrl'] = f'https://inkqxdx9em.ap-southeast-1.awsapprunner.com{image_url}'
-                        recipe['validationInfo'] = validation_result
-                    except Exception as e:
-                        print(f"Error generating image for {recipe['name']}: {str(e)}")
-                        recipe['imageUrl'] = None
+        if not validation_result or not recipes:
+            return jsonify({
+                'error': 'Failed to generate recipes',
+                'validation': validation_result,
+                'recipes_generated': bool(recipes)
+            }), 400
+        
+        # Process recipes and generate images
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_recipe = {
+                executor.submit(recipe_generator.create_recipe_image, recipe['name']): recipe 
+                for recipe in recipes
+            }
             
-            return jsonify({'recipes': recipes})
-        else:
-            return jsonify({'error': 'Failed to validate ingredients or generate recipes'}), 400
+            for future in concurrent.futures.as_completed(future_to_recipe):
+                recipe = future_to_recipe[future]
+                try:
+                    image_url = future.result()
+                    if image_url:
+                        recipe['imageUrl'] = f'https://inkqxdx9em.ap-southeast-1.awsapprunner.com{image_url}'
+                    recipe['validationInfo'] = validation_result
+                except Exception as e:
+                    print(f"Error generating image for {recipe['name']}: {str(e)}")
+                    recipe['imageUrl'] = None
+        
+        return jsonify({'recipes': recipes})
 
     except Exception as e:
-        print(f"Error in generate_recipes endpoint: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_details = {
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'request_data': request.get_data(as_text=True),
+            'headers': dict(request.headers)
+        }
+        print(f"Error in generate_recipes endpoint: {error_details}")
+        return jsonify(error_details), 500
 
 @app.route('/api/recipe-details', methods=['POST', 'OPTIONS'])
 def get_recipe_details():
