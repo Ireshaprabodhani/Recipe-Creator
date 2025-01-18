@@ -82,15 +82,10 @@ const RecipeGenerator = () => {
       
       // Prepare payload
       const payload = {
-        ingredients: ingredients.map(ing => ing.trim()),  // Ensure clean ingredients
+        ingredients: ingredients,
         num_recipes: 5
       };
-      console.log('Full request details:', {
-        url: `${API_URL}/generate-recipes`,
-        method: 'POST',
-        headers: apiClient.defaults.headers,
-        payload
-      });
+      console.log('Request payload:', payload);
       
       // Make API request
       const response = await apiClient.post('/generate-recipes', payload);
@@ -101,6 +96,7 @@ const RecipeGenerator = () => {
         const recipesWithTime = response.data.recipes.map(recipe => {
           const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i);
           
+          // Update image URL if present
           let imageUrl = recipe.imageUrl;
           if (imageUrl) {
             imageUrl = imageUrl.replace(
@@ -122,29 +118,27 @@ const RecipeGenerator = () => {
         throw new Error('Invalid response format from server');
       }
     } catch (error) {
-      // Enhanced error logging
-      console.error('Generate recipes error details:', {
+      // Comprehensive error logging
+      console.error('Generate recipes error:', {
         message: error.message,
         response: {
           data: error.response?.data,
           status: error.response?.status,
-          statusText: error.response?.statusText,
-          headers: error.response?.headers
+          statusText: error.response?.statusText
         },
         request: {
           url: error.config?.url,
           method: error.config?.method,
           headers: error.config?.headers,
-          data: JSON.stringify(error.config?.data)
+          data: error.config?.data
         }
       });
       
-      // More descriptive error message
-      const errorMessage = error.response?.data?.error 
-        ? `Server error: ${error.response.data.error}`
-        : 'Failed to generate recipes. Please try again.';
-      
-      setError(errorMessage);
+      // Set user-friendly error message
+      setError(
+        error.response?.data?.error || 
+        'Failed to generate recipes. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
