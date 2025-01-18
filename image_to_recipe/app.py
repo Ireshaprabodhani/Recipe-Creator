@@ -23,9 +23,9 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
         "origins": [
-            "http://localhost:5173", 
-            "https://*.awsapprunner.com",  
-            "https://rqddneerpm.ap-south-1.awsapprunner.com/" 
+            "https://q7f3hvgins.ap-southeast-1.awsapprunner.com",  # Your frontend App Runner URL
+            "https://inkqxdx9em.ap-southeast-1.awsapprunner.com",  # Your backend App Runner URL
+            "http://localhost:5173",  # For local development
         ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -419,21 +419,12 @@ def serve_image(filename):
         return 'Image not found', 404
 
 @app.route('/health')
-def health():
-    try:
-        # Check if OpenAI API key is set
-        if not openai.api_key:
-            raise Exception("OpenAI API key not configured")
-        
-        return jsonify({
-            "status": "healthy",
-            "message": "Service is running"
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "error": str(e)
-        }), 500
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'api_version': '1.0',
+        'environment': os.getenv('FLASK_ENV', 'production')
+    }), 200
         
 
 if __name__ == '__main__':

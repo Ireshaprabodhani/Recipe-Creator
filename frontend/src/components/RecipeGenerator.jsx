@@ -84,30 +84,54 @@ const RecipeGenerator = () => {
       }
       console.log('Request payload:', payload)
       
-      const response = await axios.post(
-        `${API_URL}/generate-recipes`, 
-        payload,
-        defaultAxiosConfig
-      )
-      
-      console.log('API Response:', response)
-      
-      if (response.data && response.data.recipes) {
-        const recipesWithTime = response.data.recipes.map(recipe => {
-          const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i)
-          // Update image URL to use the correct domain
-          if (recipe.imageUrl) {
-            recipe.imageUrl = recipe.imageUrl.replace('https://inkqxdx9em.ap-southeast-1.awsapprunner.com', BASE_URL)
+      // Add detailed error logging
+      try {
+        const response = await axios.post(
+          `${API_URL}/generate-recipes`, 
+          payload,
+          {
+            ...defaultAxiosConfig,
+            headers: {
+              ...defaultAxiosConfig.headers,
+              'Origin': window.location.origin
+            }
           }
-          return {
-            ...recipe,
-            cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
+        )
+        
+        console.log('API Response:', response)
+        
+        if (response.data && response.data.recipes) {
+          const recipesWithTime = response.data.recipes.map(recipe => {
+            const timeMatch = recipe.content?.match(/cooking time:?\s*(\d+)\s*minutes/i)
+            if (recipe.imageUrl) {
+              recipe.imageUrl = recipe.imageUrl.replace(
+                'https://inkqxdx9em.ap-southeast-1.awsapprunner.com', 
+                BASE_URL
+              )
+            }
+            return {
+              ...recipe,
+              cookingTime: timeMatch ? `${timeMatch[1]} minutes` : '20 minutes'
+            }
+          })
+          setRecipes(recipesWithTime)
+          setStage('recipes')
+        } else {
+          throw new Error('Invalid response format from server')
+        }
+      } catch (axiosError) {
+        console.error('Axios error details:', {
+          message: axiosError.message,
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data,
+          config: {
+            url: axiosError.config?.url,
+            method: axiosError.config?.method,
+            headers: axiosError.config?.headers
           }
         })
-        setRecipes(recipesWithTime)
-        setStage('recipes')
-      } else {
-        throw new Error('Invalid response format from server')
+        throw axiosError // Re-throw for outer catch block
       }
     } catch (err) {
       console.error('Generate recipes error details:', {
