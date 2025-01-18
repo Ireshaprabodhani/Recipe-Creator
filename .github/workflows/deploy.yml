@@ -29,11 +29,43 @@ jobs:
         docker tag backend:latest ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
         docker push ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
 
+    - name: Wait for previous deployments to complete
+      run: |
+        wait_for_service() {
+          local service_arn=$1
+          local max_attempts=30
+          local attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            status=$(aws apprunner describe-service --service-arn "$service_arn" --query "Service.Status" --output text)
+            echo "Service status: $status (Attempt $attempt/$max_attempts)"
+            
+            if [ "$status" = "RUNNING" ]; then
+              return 0
+            elif [ "$status" = "FAILED" ]; then
+              echo "Service deployment failed"
+              return 1
+            fi
+            
+            sleep 20
+            attempt=$((attempt + 1))
+          done
+          
+          echo "Timeout waiting for service to be ready"
+          return 1
+        }
+
     - name: Deploy Backend to App Runner
       run: |
+        # Wait for backend service to be ready
+        wait_for_service "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}"
+        
         aws apprunner update-service \
           --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" \
           --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"5000\",\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
+        
+        # Wait for update to complete
+        wait_for_service "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}"
 
     - name: Build and push frontend
       working-directory: ./frontend
@@ -44,6 +76,22 @@ jobs:
 
     - name: Deploy Frontend to App Runner
       run: |
+        # Wait for frontend service to be ready
+        wait_for_service "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}"
+        
         aws apprunner update-service \
           --service-arn "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}" \
           --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-frontend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"80\",\"RuntimeEnvironmentVariables\":{\"VITE_API_URL\":\"${{ secrets.BACKEND_URL }}\"}}}}"
+        
+        # Wait for update to complete
+        wait_for_service "${{ secrets.FRONTEND_APPRUNNER_SERVICE_ARN }}"
+
+    - name: Verify Deployment
+      run: |
+        echo "Checking backend health..."
+        curl -f "${{ secrets.BACKEND_URL }}/health" || exit 1
+        
+        echo "Checking frontend health..."
+        curl -f "${{ secrets.FRONTEND_URL }}/health" || exit 1
+        
+        echo "Deployment verification complete"
