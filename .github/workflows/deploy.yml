@@ -30,7 +30,7 @@ jobs:
         docker push ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
 
     - name: Deploy Backend to App Runner
-      run: |a
+      run: |
         aws apprunner update-service \
           --service-arn "${{ secrets.BACKEND_APPRUNNER_SERVICE_ARN }}" \
           --source-configuration "{\"ImageRepository\":{\"ImageIdentifier\":\"${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest\",\"ImageRepositoryType\":\"ECR\",\"ImageConfiguration\":{\"Port\":\"5000\",\"RuntimeEnvironmentVariables\":{\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\"}}}}"
