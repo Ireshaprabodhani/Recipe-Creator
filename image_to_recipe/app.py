@@ -365,7 +365,7 @@ def generate_recipes():
                 try:
                     image_url = future.result()
                     if image_url:
-                        recipe['imageUrl'] = f'https://inkqxdx9em.ap-southeast-1.awsapprunner.com{image_url}'
+                        recipe['imageUrl'] = f'https://izjmfakgjj.ap-south-1.awsapprunner.com{image_url}'
                     recipe['validationInfo'] = validation_result
                 except Exception as e:
                     print(f"Error generating image for {recipe['name']}: {str(e)}")
