@@ -18,14 +18,14 @@ os.makedirs('generated_recipes', exist_ok=True)
 
 load_dotenv()
 
-app = Flask(__name__)
+
 
 CORS(app, resources={
     r"/*": {
         "origins": [
-            "https://cruedpi8sp.ap-south-1.awsapprunner.com",  # Your frontend App Runner URL
-            "https://izjmfakgjj.ap-south-1.awsapprunner.com",  # Your backend App Runner URL
-            "http://localhost:5173",  # For local development
+            "https://cruedpi8sp.ap-south-1.awsapprunner.com",  
+            "https://izjmfakgjj.ap-south-1.awsapprunner.com",  
+            "http://localhost:5173"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -463,10 +463,17 @@ def serve_image(filename):
 @app.route('/health')
 def health_check():
     return jsonify({
-        'status': 'healthy',
-        'api_version': '1.0',
-        'environment': os.getenv('FLASK_ENV', 'production')
-    }), 200
+        "status": "healthy",
+        "api_version": "1.0",
+        "environment": os.getenv('FLASK_ENV', 'production')
+    })
+
+    @app.route('/')
+    def root():
+        return jsonify({
+            "status": "healthy",
+            "message": "Recipe Generator API is running"
+        })
         
 
 if __name__ == '__main__':
