@@ -7,7 +7,7 @@ RUN npm install
 COPY . .
 
 # Set the API URL environment variable
-ARG VITE_API_URL=https://inkqxdx9em.ap-southeast-1.awsapprunner.com
+ARG VITE_API_URL=https://izjmfakgjj.ap-south-1.awsapprunner.com
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
@@ -21,12 +21,13 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create health check endpoint directory
-RUN mkdir -p /usr/share/nginx/html/health
-
-# Add health check file
-RUN echo "OK" > /usr/share/nginx/html/health/index.html
+# Create health check file
+RUN echo "healthy" > /usr/share/nginx/html/health
 
 EXPOSE 80
+
+# Add a healthcheck
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD wget -q --spider http://localhost/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

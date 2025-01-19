@@ -23,8 +23,8 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
         "origins": [
-            "https://q7f3hvgins.ap-southeast-1.awsapprunner.com",  # Your frontend App Runner URL
-            "https://inkqxdx9em.ap-southeast-1.awsapprunner.com",  # Your backend App Runner URL
+            "https://cruedpi8sp.ap-south-1.awsapprunner.com",  # Your frontend App Runner URL
+            "https://izjmfakgjj.ap-south-1.awsapprunner.com",  # Your backend App Runner URL
             "http://localhost:5173",  # For local development
         ],
         "methods": ["GET", "POST", "OPTIONS"],

@@ -30,7 +30,7 @@ const RecipeGenerator = () => {
   const [currentRecipePage, setCurrentRecipePage] = useState(0)
   const [nutritionLoading, setNutritionLoading] = useState(false)
 
-  const BASE_URL = import.meta.env.VITE_API_URL || 'https://inkqxdx9em.ap-southeast-1.awsapprunner.com';
+  const BASE_URL = import.meta.env.VITE_API_URL || 'https://izjmfakgjj.ap-south-1.awsapprunner.com';
   const API_URL = `${BASE_URL}/api`;
 
   const axiosConfig = {
@@ -104,7 +104,7 @@ const RecipeGenerator = () => {
           let imageUrl = recipe.imageUrl;
           if (imageUrl) {
             imageUrl = imageUrl.replace(
-              'https://inkqxdx9em.ap-southeast-1.awsapprunner.com',
+              'https://izjmfakgjj.ap-south-1.awsapprunner.com',
               BASE_URL
             );
           }
