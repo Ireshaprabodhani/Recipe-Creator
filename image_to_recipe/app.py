@@ -4,51 +4,46 @@ import openai
 from PIL import Image
 import os
 import requests
+import boto3
+import json
 from io import BytesIO
 from dotenv import load_dotenv
 import concurrent.futures
 from functools import lru_cache
-from flask_cors import CORS
+from mangum import Mangum
 
 app = Flask(__name__)
 CORS(app)
 
-os.makedirs('generated_recipes', exist_ok=True)
-
-
+# Environment setup
 load_dotenv()
 
+# AWS S3 setup
+s3 = boto3.client('s3')
+BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'recipe-generator-images')
 
-
+# CORS configuration for Lambda
 CORS(app, resources={
     r"/*": {
         "origins": [
-            "https://cruedpi8sp.ap-south-1.awsapprunner.com",  
-            "https://izjmfakgjj.ap-south-1.awsapprunner.com",  
-            "http://localhost:5173"
+            "*"  # Update with your Amplify domain in production
         ],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
 })
 
-
-
 # Initialize OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 class RecipeGenerator:
     def __init__(self):
-        self.image_folder = 'generated_recipes'
+        self.image_folder = '/tmp/generated_recipes'
         os.makedirs(self.image_folder, exist_ok=True)
 
     @lru_cache(maxsize=128)
     def _validate_ingredients_cached(self, ingredients_tuple):
-        """
-        Cached version of ingredient validation
-        """
         ingredients_list = list(ingredients_tuple)
-        # Use GPT to validate ingredients and get suggestions
         prompt = f"""Analyze these ingredients and provide validation info:
         Ingredients: {', '.join(ingredients_list)}
         
@@ -59,37 +54,31 @@ class RecipeGenerator:
         
         Format response as a brief summary."""
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a chef validating cooking ingredients."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        
-        return response.choices[0].message.content.strip()
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a chef validating cooking ingredients."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"OpenAI API error: {str(e)}")
+            return None
 
     def validate_ingredients(self, ingredients):
-        """
-        Validates the ingredients list and returns validation info with caching
-        """
         try:
             if not ingredients or len(ingredients) < 2:
                 return None
-            
-            # Convert list to tuple for caching (lists are not hashable)
             ingredients_tuple = tuple(sorted(ingredients))
             return self._validate_ingredients_cached(ingredients_tuple)
-            
         except Exception as e:
-            print(f"Error validating ingredients: {str(e)}")
+            print(f"Validation error: {str(e)}")
             return None
 
     def generate_recipe_options(self, ingredients):
-        """
-        Generates recipe options based on the provided ingredients
-        """
         try:
             prompt = f"""Create 6 unique recipe ideas using these ingredients: {', '.join(ingredients)}
             
@@ -108,34 +97,23 @@ class RecipeGenerator:
                     "additionalIngredients": ["ingredient1", "ingredient2"],
                     "timeEstimate": "20-30 mins",
                     "difficulty": "Easy"
-                }},
-                ...
+                }}
             ]"""
 
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a creative international chef generating diverse and exciting recipe ideas."},
+                    {"role": "system", "content": "You are a creative international chef generating diverse recipes."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8  # Increased for more creativity
+                temperature=0.8
             )
 
-            # Parse the response to extract recipes
-            import json
-            recipes_text = response.choices[0].message.content.strip()
-            recipes = json.loads(recipes_text)
-            
-            # Ensure we have exactly 6 recipes
-            if len(recipes) > 6:
-                recipes = recipes[:6]
-            elif len(recipes) < 6:
-                print("Warning: Generated fewer than 6 recipes")
-                
-            return recipes
+            recipes = json.loads(response.choices[0].message.content.strip())
+            return recipes[:6] if len(recipes) > 6 else recipes
 
         except Exception as e:
-            print(f"Error generating recipe options: {str(e)}")
+            print(f"Recipe generation error: {str(e)}")
             return None
 
     def generate_detailed_recipe(self, recipe_name, ingredients):
@@ -143,79 +121,54 @@ class RecipeGenerator:
             prompt = f"""Create a detailed recipe for: {recipe_name}
             Using these ingredients: {', '.join(ingredients)}
 
-            First, analyze the recipe and determine:
-            1. Realistic cooking time based on preparation and cooking steps
-            2. Appropriate number of servings based on ingredient quantities
-            3. Difficulty level (Easy, Medium, Hard)
-
-            Then format the recipe as follows:
-
-            Cooking Time: [Calculate exact time in minutes based on all steps]
-            Servings: [Calculate based on ingredient quantities]
-            Difficulty: [Based on complexity of steps and techniques]
+            Format:
+            Cooking Time: [minutes]
+            Servings: [number]
+            Difficulty: [Easy/Medium/Hard]
 
             Ingredients:
-            - [List each ingredient with exact measurements]
+            - [Exact measurements]
 
             Instructions:
-            1. [First preparation step with specific time]
-            2. [Second preparation step with specific time]
-            3. [Continue with detailed steps and timing...]
+            1. [Detailed steps]
 
             Chef's Tips:
-            - [Include 2-3 helpful cooking tips]
-            - [Storage recommendations]
-            - [Best serving suggestions]
+            - [3 tips]
 
             Nutritional Information (per serving):
-            - Calories
-            - Protein
-            - Carbs
-            - Fat
-
-            Please ensure cooking time and servings are realistic and specific to this recipe.
+            - [Complete breakdown]
             """
 
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
-                    {
-                        "role": "system", 
-                        "content": """You are a professional chef creating precise recipes. 
-                        Always calculate exact cooking times based on preparation and cooking steps.
-                        Determine realistic serving sizes based on ingredient quantities.
-                        Never use generic times or serving sizes."""
-                    },
+                    {"role": "system", "content": "You are a professional chef creating precise recipes."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7
             )
             
             return response.choices[0].message.content.strip()
-
         except Exception as e:
-            print(f"Error generating detailed recipe: {str(e)}")
+            print(f"Detailed recipe error: {str(e)}")
             return None
 
     def get_nutrition_analysis(self, recipe_name, ingredients):
         try:
-            prompt = f"""Provide comprehensive nutritional analysis for {recipe_name} with ingredients: {', '.join(ingredients)}
-
-            Include:
-            1. Complete macronutrient breakdown
-            2. Detailed micronutrient content
-            3. Caloric content and distribution
-            4. Daily value percentages
-            5. Health benefits and considerations
-            6. Glycemic index estimate
-            7. Potential allergens
-            8. Suggestions for nutritional improvements
-            """
+            prompt = f"""Analyze nutrition for {recipe_name} with {', '.join(ingredients)}:
+            1. Macronutrients
+            2. Micronutrients
+            3. Calories
+            4. Daily values
+            5. Health benefits
+            6. Glycemic index
+            7. Allergens
+            8. Improvement suggestions"""
 
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a certified nutritionist providing detailed and accurate nutritional analysis."},
+                    {"role": "system", "content": "You are a certified nutritionist."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3
@@ -223,73 +176,48 @@ class RecipeGenerator:
             
             return response.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Error generating nutrition analysis: {str(e)}")
+            print(f"Nutrition analysis error: {str(e)}")
             return None
 
     def create_recipe_image(self, recipe_name):
-        """
-        Creates an image for the recipe using DALL-E and saves it
-        """
         try:
-            # Ensure the image folder exists with proper permissions
-            if not os.path.exists(self.image_folder):
-                os.makedirs(self.image_folder, mode=0o755, exist_ok=True)
+            prompt = f"Professional food photo of {recipe_name}, beautiful plating, soft lighting, high resolution"
             
-            # Generate image prompt
-            prompt = f"A professional food photography style image of {recipe_name}, on a beautiful plate with garnish, soft lighting, high resolution"
-            
-            # Create image using DALL-E
             response = openai.Image.create(
                 prompt=prompt,
                 n=1,
                 size="512x512"
             )
             
-            # Get image URL from response
             image_url = response['data'][0]['url']
-            
-            # Download the image
             image_response = requests.get(image_url)
+            
             if image_response.status_code != 200:
-                raise Exception("Failed to download image")
+                raise Exception("Image download failed")
             
-            # Create a safe filename from recipe name
-            safe_filename = recipe_name.lower().replace(' ', '_').replace("'", "").replace('"', '')
-            safe_filename = ''.join(c for c in safe_filename if c.isalnum() or c == '_')
-            safe_filename = safe_filename.replace('-', '_')  # Replace hyphens with underscores
-            filename = f"{safe_filename}.png"
+            filename = f"{recipe_name.lower().replace(' ', '_')}.png"
+            filename = ''.join(c for c in filename if c.isalnum() or c == '_')
             
-            # Save the image with proper permissions
-            image_path = os.path.join(self.image_folder, filename)
-            with open(image_path, 'wb') as f:
-                f.write(image_response.content)
+            # Upload to S3
+            s3.put_object(
+                Bucket=BUCKET_NAME,
+                Key=filename,
+                Body=image_response.content,
+                ContentType='image/png'
+            )
             
-            # Set proper file permissions
-            os.chmod(image_path, 0o644)
+            # Generate presigned URL
+            url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': BUCKET_NAME, 'Key': filename},
+                ExpiresIn=3600
+            )
             
-            # Clean up old images
-            self.cleanup_old_images()
-            
-            # Return the URL path for the image
-            return f'/images/{filename}'
+            return url
             
         except Exception as e:
-            print(f"Error creating recipe image: {str(e)}")
+            print(f"Image creation error: {str(e)}")
             return None
-
-    def cleanup_old_images(self, max_images=50):
-        """
-        Removes old images when the folder exceeds max_images
-        """
-        try:
-            images = [f for f in os.listdir(self.image_folder) if f.endswith('.png')]
-            if len(images) > max_images:
-                images.sort(key=lambda x: os.path.getctime(os.path.join(self.image_folder, x)))
-                for old_image in images[:(len(images) - max_images)]:
-                    os.remove(os.path.join(self.image_folder, old_image))
-        except Exception as e:
-            print(f"Error cleaning up old images: {str(e)}")
-
 
 recipe_generator = RecipeGenerator()
 
@@ -299,46 +227,12 @@ def generate_recipes():
         return "", 200
         
     try:
-        # Log incoming request
-        print(f"Received request with headers: {dict(request.headers)}")
-        print(f"Request body: {request.get_data(as_text=True)}")
-        
-        # Validate request
-        if not request.is_json:
-            return jsonify({
-                'error': 'Request must be JSON',
-                'content_type': request.headers.get('Content-Type')
-            }), 400
-            
         data = request.json
-        print(f"Parsed JSON data: {data}")
-        
-        # Validate ingredients
         ingredients = data.get('ingredients', [])
-        if not ingredients:
-            return jsonify({
-                'error': 'No ingredients provided',
-                'data': data
-            }), 400
-            
-        if not isinstance(ingredients, list):
-            return jsonify({
-                'error': 'Ingredients must be a list',
-                'type': type(ingredients).__name__,
-                'data': ingredients
-            }), 400
-            
-        if len(ingredients) < 2:
-            return jsonify({
-                'error': 'At least 2 ingredients are required',
-                'count': len(ingredients)
-            }), 400
-            
-        # Clean ingredients
-        ingredients = [str(ing).strip() for ing in ingredients if ing]
-        ingredients = [ing for ing in ingredients if ing]  # Remove empty strings
         
-        # Generate recipes
+        if not ingredients or len(ingredients) < 2:
+            return jsonify({'error': 'At least 2 ingredients required'}), 400
+        
         with concurrent.futures.ThreadPoolExecutor() as executor:
             validation_future = executor.submit(recipe_generator.validate_ingredients, ingredients)
             recipes_future = executor.submit(recipe_generator.generate_recipe_options, ingredients)
@@ -347,13 +241,8 @@ def generate_recipes():
             recipes = recipes_future.result()
         
         if not validation_result or not recipes:
-            return jsonify({
-                'error': 'Failed to generate recipes',
-                'validation': validation_result,
-                'recipes_generated': bool(recipes)
-            }), 400
-        
-        # Process recipes and generate images
+            return jsonify({'error': 'Recipe generation failed'}), 400
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             future_to_recipe = {
                 executor.submit(recipe_generator.create_recipe_image, recipe['name']): recipe 
@@ -364,25 +253,15 @@ def generate_recipes():
                 recipe = future_to_recipe[future]
                 try:
                     image_url = future.result()
-                    if image_url:
-                        recipe['imageUrl'] = f'https://izjmfakgjj.ap-south-1.awsapprunner.com{image_url}'
+                    recipe['imageUrl'] = image_url
                     recipe['validationInfo'] = validation_result
                 except Exception as e:
-                    print(f"Error generating image for {recipe['name']}: {str(e)}")
                     recipe['imageUrl'] = None
         
         return jsonify({'recipes': recipes})
 
     except Exception as e:
-        import traceback
-        error_details = {
-            'error': str(e),
-            'traceback': traceback.format_exc(),
-            'request_data': request.get_data(as_text=True),
-            'headers': dict(request.headers)
-        }
-        print(f"Error in generate_recipes endpoint: {error_details}")
-        return jsonify(error_details), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/recipe-details', methods=['POST', 'OPTIONS'])
 def get_recipe_details():
@@ -395,13 +274,13 @@ def get_recipe_details():
         ingredients = data.get('ingredients', [])
         
         if not recipe_name:
-            return jsonify({'error': 'No recipe name provided'}), 400
+            return jsonify({'error': 'Recipe name required'}), 400
         
         detailed_recipe = recipe_generator.generate_detailed_recipe(recipe_name, ingredients)
         nutrition_analysis = recipe_generator.get_nutrition_analysis(recipe_name, ingredients)
         
         if not detailed_recipe:
-            return jsonify({'error': 'Failed to generate recipe details'}), 500
+            return jsonify({'error': 'Recipe details generation failed'}), 500
         
         return jsonify({
             'recipe': detailed_recipe,
@@ -409,7 +288,6 @@ def get_recipe_details():
         })
 
     except Exception as e:
-        print(f"Error in recipe details: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/nutrition-info', methods=['POST', 'OPTIONS'])
@@ -425,56 +303,48 @@ def get_nutrition_info():
         nutrition_analysis = recipe_generator.get_nutrition_analysis(recipe_name, ingredients)
         
         if not nutrition_analysis:
-            return jsonify({'error': 'Failed to generate nutrition information'}), 500
+            return jsonify({'error': 'Nutrition analysis failed'}), 500
         
-        return jsonify({
-            'nutritionInfo': nutrition_analysis
-        })
+        return jsonify({'nutritionInfo': nutrition_analysis})
 
     except Exception as e:
-        print(f"Error getting nutrition info: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/images/<filename>')
 def serve_image(filename):
-    """
-    Serves images from the generated_recipes directory
-    """
     try:
-        # Ensure the filename is safe
-        safe_filename = ''.join(c for c in filename if c.isalnum() or c in ['_', '.'])
-        if not safe_filename.endswith('.png'):
-            return 'Invalid file format', 400
-            
-        # Get the absolute path to the images directory
-        image_dir = os.path.abspath(recipe_generator.image_folder)
-        
-        # Serve the image file
-        return send_from_directory(
-            image_dir, 
-            safe_filename, 
-            mimetype='image/png',
-            as_attachment=False
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': BUCKET_NAME, 'Key': filename},
+            ExpiresIn=3600
         )
+        return jsonify({'url': url})
     except Exception as e:
-        print(f"Error serving image {filename}: {str(e)}")
-        return 'Image not found', 404
+        return jsonify({'error': str(e)}), 404
 
 @app.route('/health')
 def health_check():
-    return jsonify({
-        "status": "healthy",
-        "api_version": "1.0",
-        "environment": os.getenv('FLASK_ENV', 'production')
-    })
-
-    @app.route('/')
-    def root():
+    try:
+        # Verify OpenAI API key
+        if not openai.api_key:
+            raise Exception("OpenAI API key not configured")
+            
+        # Verify S3 access
+        s3.list_objects_v2(Bucket=BUCKET_NAME, MaxKeys=1)
+        
         return jsonify({
             "status": "healthy",
-            "message": "Recipe Generator API is running"
-        })
-        
+            "openai": "connected",
+            "s3": "connected"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 500
+
+# Lambda handler
+handler = Mangum(app)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
