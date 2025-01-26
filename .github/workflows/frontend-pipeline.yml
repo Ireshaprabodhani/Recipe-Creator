@@ -19,6 +19,15 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
     
-    - name: Deploy to Amplify
+    - name: Build
+      working-directory: ./frontend
       run: |
-        aws amplify create-deployment --app-id ${{ secrets.AMPLIFY_APP_ID }} --branch-name main
+        npm ci
+        echo "VITE_API_URL=https://fbwlfpmt9qd.ap-south-1.awsapprunner.com" >> .env
+        npm run build
+        
+    - name: Deploy to Amplify
+      env:
+        AMPLIFY_APP_ID: d2sq26elbr7mze
+      run: |
+        aws amplify start-deployment --app-id $AMPLIFY_APP_ID --branch-name main --source-url ./frontend/dist
