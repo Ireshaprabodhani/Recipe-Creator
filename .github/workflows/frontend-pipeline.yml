@@ -20,8 +20,9 @@ jobs:
           aws-region: ap-south-1
 
       - name: Deploy to AWS Amplify
+        env:
+          AWS_DEFAULT_REGION: ap-south-1
         run: |
-          aws amplify start-job \
+          aws amplify create-deployment \
             --app-id d2sq26elbr7mze \
-            --branch-name main \
-            --job-type RELEASE
+            --branch-name main

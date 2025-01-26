@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables */
+
 :root {
   --color-gold: #D4AF37;
   --color-cream: #FFFDD0;
