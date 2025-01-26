@@ -30,10 +30,10 @@ jobs:
         docker tag recipe-backend:latest 003891656478.dkr.ecr.ap-south-1.amazonaws.com/recipe-backend:latest
         docker push 003891656478.dkr.ecr.ap-south-1.amazonaws.com/recipe-backend:latest
     
-    - name: Create/Update App Runner service
+    - name: Create App Runner service
       run: |
-        aws apprunner update-service --cli-input-json '{
-          "ServiceArn": "${{ secrets.APPRUNNER_SERVICE_ARN }}",
+        aws apprunner create-service --cli-input-json '{
+          "ServiceName": "recipe-backend",
           "SourceConfiguration": {
             "AuthenticationConfiguration": {
               "AccessRoleArn": "arn:aws:iam::003891656478:role/AppRunnerECRAccessRole"
@@ -43,7 +43,6 @@ jobs:
               "ImageRepositoryType": "ECR",
               "ImageConfiguration": {
                 "Port": "5000",
-                "StartCommand": "gunicorn --bind 0.0.0.0:5000 app:app",
                 "RuntimeEnvironmentVariables": {
                   "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
                   "PORT": "5000"
