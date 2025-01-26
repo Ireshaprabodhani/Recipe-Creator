@@ -27,10 +27,7 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
-          aws amplify start-job \
+          aws amplify start-deployment \
             --app-id d2j87bb4s \
             --branch-name main \
-            --job-type RELEASE \
-            --environment-variables '{
-              "VITE_API_URL": "https://fbwlfpmt9qd.ap-south-1.awsapprunner.com"
-            }'
+            --environment-variables VITE_API_URL=https://fbwlfpmt9qd.ap-south-1.awsapprunner.com
