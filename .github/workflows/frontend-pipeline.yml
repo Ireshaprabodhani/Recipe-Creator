@@ -7,16 +7,9 @@ on:
       - 'frontend/**'
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -24,13 +17,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Install Amplify CLI
+      - name: Trigger Amplify Build
         run: |
-          npm install -g @aws-amplify/cli
-          npm install -g @aws-amplify/cli@latest
-          which amplify
-
-      - name: Deploy to AWS Amplify
-        run: |
-          cd frontend
-          amplify push --yes
+          aws amplify start-job \
+            --app-id d2j87bb4s \
+            --branch-name main \
+            --job-type RELEASE
