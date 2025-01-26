@@ -27,18 +27,27 @@ jobs:
       working-directory: ./image_to_recipe
       run: |
         docker build -t recipe-backend .
-        docker tag recipe-backend:latest ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
-        docker push ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
+        docker tag recipe-backend:latest 003891656478.dkr.ecr.ap-south-1.amazonaws.com/recipe-backend:latest
+        docker push 003891656478.dkr.ecr.ap-south-1.amazonaws.com/recipe-backend:latest
     
-    - name: Deploy to App Runner
-      uses: aws-actions/aws-app-runner-deploy@v1
-      with:
-        service: recipe-backend
-        image: ${{ steps.login-ecr.outputs.registry }}/recipe-backend:latest
-        access-role-arn: ${{ secrets.APPRUNNER_SERVICE_ROLE_ARN }}
-        region: ap-south-1
-        wait-for-service-stability: true
-        port: 5000
-        runtime-environment-variables: |
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          PORT=5000
+    - name: Create App Runner service
+      run: |
+        aws apprunner create-service --cli-input-json '{
+          "ServiceName": "recipe-backend",
+          "SourceConfiguration": {
+            "AuthenticationConfiguration": {
+              "AccessRoleArn": "arn:aws:iam::003891656478:role/AppRunnerECRAccessRole"
+            },
+            "ImageRepository": {
+              "ImageIdentifier": "003891656478.dkr.ecr.ap-south-1.amazonaws.com/recipe-backend:latest",
+              "ImageRepositoryType": "ECR",
+              "ImageConfiguration": {
+                "Port": "5000",
+                "RuntimeEnvironmentVariables": {
+                  "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+                  "PORT": "5000"
+                }
+              }
+            }
+          }
+        }'
