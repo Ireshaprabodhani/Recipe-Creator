@@ -19,12 +19,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Install Amplify CLI
-        run: npm install -g @aws-amplify/cli
-
-      - name: Pull Amplify App
+      - name: Deploy to AWS Amplify
         run: |
-          amplify pull --appId d2sq26elbr7mze --envName prod
-
-      - name: Deploy to Amplify
-        run: amplify publish --yes
+          curl -sL https://aws-amplify.github.io/amplify-cli/install | bash && $SHELL
+          amplify init --amplify "{\"envName\":\"prod\"}" --yes
+          amplify add hosting --amplify "{\"appId\":\"d2sq26elbr7mze\"}" --yes
+          amplify publish --yes
