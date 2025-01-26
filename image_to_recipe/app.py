@@ -18,7 +18,7 @@ CORS(app)
 
 load_dotenv()
 
-# AWS S3 setup
+
 s3 = boto3.client('s3')
 BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'recipe-generator-images')
 
