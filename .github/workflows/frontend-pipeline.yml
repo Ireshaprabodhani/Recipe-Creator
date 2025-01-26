@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -19,9 +24,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+      - name: Install Amplify CLI
+        run: |
+          npm install -g @aws-amplify/cli
+          npm install -g @aws-amplify/cli@latest
+          which amplify
+
       - name: Deploy to AWS Amplify
         run: |
-          curl -sL https://aws-amplify.github.io/amplify-cli/install | bash && $SHELL
-          amplify init --amplify "{\"envName\":\"prod\"}" --yes
-          amplify add hosting --amplify "{\"appId\":\"d2sq26elbr7mze\"}" --yes
-          amplify publish --yes
+          cd frontend
+          amplify push --yes
