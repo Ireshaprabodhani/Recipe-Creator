@@ -22,6 +22,6 @@ jobs:
       - name: Deploy to AWS Amplify
         run: |
           aws amplify start-job \
-            --app-id d2sq26elbr7mze \
+            --app-id d2j87bb4s \
             --branch-name main \
             --job-type RELEASE
