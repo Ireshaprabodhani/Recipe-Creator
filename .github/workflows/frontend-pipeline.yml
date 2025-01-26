@@ -10,6 +10,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -17,9 +19,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Trigger Amplify Build
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy to Amplify
         run: |
           aws amplify start-job \
             --app-id d2j87bb4s \
             --branch-name main \
-            --job-type RELEASE
+            --job-type RELEASE \
+            --environment-variables '{
+              "VITE_API_URL": "https://fbwlfpmt9qd.ap-south-1.awsapprunner.com"
+            }'
