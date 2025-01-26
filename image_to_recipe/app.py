@@ -326,7 +326,7 @@ def serve_image(filename):
 def health():
     return jsonify({"status": "healthy"})
 
-# Lambda handler
+
 handler = Mangum(app)
 
 if __name__ == '__main__':
