@@ -15,7 +15,7 @@ from mangum import Mangum
 app = Flask(__name__)
 CORS(app)
 
-
+# Environment setup
 load_dotenv()
 
 # AWS S3 setup
