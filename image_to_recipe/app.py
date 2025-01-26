@@ -323,25 +323,8 @@ def serve_image(filename):
         return jsonify({'error': str(e)}), 404
 
 @app.route('/health')
-def health_check():
-    try:
-        # Verify OpenAI API key
-        if not openai.api_key:
-            raise Exception("OpenAI API key not configured")
-            
-        # Verify S3 access
-        s3.list_objects_v2(Bucket=BUCKET_NAME, MaxKeys=1)
-        
-        return jsonify({
-            "status": "healthy",
-            "openai": "connected",
-            "s3": "connected"
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "error": str(e)
-        }), 500
+def health():
+    return jsonify({"status": "healthy"})
 
 # Lambda handler
 handler = Mangum(app)
